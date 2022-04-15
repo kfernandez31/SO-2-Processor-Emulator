@@ -247,58 +247,65 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         PRINT_UDEC 1, [r9]    
         PRINT_STRING ", $arg2 = "
         PRINT_UDEC 1, [r10]   
-        NEWLINE           
+        NEWLINE     
+        mov     al, [r10]      
         jmp     [jtbl_2args+r11*8]      ; jump to the appropriate instruction
 .SO_MOV: ;TODO: te rzeczy w ogóle da się skrócić korzystając z makr i "fptrów" xD
         PRINT_STRING "MOV"
         NEWLINE
-        mov     al, [r10]
         mov     [r9], al
         jmp     .after_switch
 .SO_AND:
         PRINT_STRING "AND"
         NEWLINE
-        mov     al, [r10]
         and     [r9], al
-        jnz     .after_switch
-        mov     BYTE[rbp-flag_C], 0x1 ;TODO: nie ma na to jakiejś instrukcji wbudowanej? set-based-on-carry jakieś
-        jmp     .after_switch
+        jmp     .set_ZF
 .SO_OR:
         PRINT_STRING "OR"
         NEWLINE
-        mov     al, [r10]
         or      [r9], al
-        jnz     .after_switch
-        mov     BYTE[rbp-flag_C], 0x1
-        jmp     .after_switch
+        jmp     .set_ZF
 .SO_XOR:
         PRINT_STRING "XOR"
         NEWLINE
-        mov     al, [r10]
-        xor      [r9], al
-        jnz     .after_switch
-        mov     BYTE[rbp-flag_C], 0x1
-        jmp     .after_switch
+        xor     [r9], al
+        jmp     .set_ZF
 .SO_ADD:
         PRINT_STRING "ADD"
         NEWLINE
-        jmp     .after_switch
+        add     [r9], al
+        jmp     .set_ZF
 .SO_SUB:
         PRINT_STRING "SUB"
-       NEWLINE
-        jmp     .after_switch
+        NEWLINE
+        sub     [r9], al
+        jmp     .set_ZF
 .SO_ADC:
         PRINT_STRING "ADC"
         NEWLINE
-        jmp     .after_switch
+        mov     r11b, [rbp-flag_C]
+        add     [r9], r11b
+        add     [r9], al
+        jmp     .set_CF
 .SO_SBB:
         PRINT_STRING "SBB"
         NEWLINE
-        jmp     .after_switch
+        mov     r11b, [rbp-flag_C]
+        sub     [r9], r11b
+        sub     [r9], al
+        jmp     .set_CF
 .SO_XCHG:
         PRINT_STRING "XCHG"
         NEWLINE
+        xchg    [r9], al
+        mov     [r10], al
         jmp     .after_switch
+.set_CF:
+        setc    BYTE[rbp-flag_C]
+.set_ZF:
+        setz    BYTE[rbp-flag_Z]
+        jmp     .after_switch
+        
 
 .cat_arg_imm8:
         cmp     r10w, 0x6
@@ -467,5 +474,5 @@ section .data
 
         data  db  0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255
         ;data db 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110
-        steps equ 49
+        steps equ 8
         core  equ 0
