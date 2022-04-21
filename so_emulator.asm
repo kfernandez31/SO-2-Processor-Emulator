@@ -1,10 +1,8 @@
 global so_emul
 
-;todo: ujednolicić nazewnictwo (so, cpu)
-
 ; compilation-time constant for max number of cores used at once
-%ifndef DCORES
-%define DCORES 4
+%ifndef CORES
+%define CORES 4
 %endif
 
 %define SO_CPU          rbx+rcx*8
@@ -14,19 +12,13 @@ global so_emul
 %define JTBL_JUMPS      r15
 
 ; so_cpu_t fields
-REG_A    equ 0x0
+;REG_A    equ 0x0
 REG_D    equ 0x1
-REG_X    equ 0x2
-REG_Y    equ 0x3
+;REG_X    equ 0x2
+;REG_Y    equ 0x3
 REG_PC   equ 0x4
 FLAG_C   equ 0x6
 FLAG_Z   equ 0x7
-
-; addresses specified in instruction arguments
-addr_X   equ 0x4
-addr_Y   equ 0x5
-addr_XD  equ 0x6
-addr_YD  equ 0x7
 
 ; emulator instructions
 SO_BRK   equ 0xFFFF
@@ -59,7 +51,7 @@ section .rodata
     jtbl_cat:
         dq so_emul.cat_2args    - jtbl_cat
         dq so_emul.cat_arg_imm8 - jtbl_cat
-        dq so_emul.cat_fsets    - jtbl_cat
+        dq so_emul.cat_flagset  - jtbl_cat
         dq so_emul.cat_jumps    - jtbl_cat
 ; jump-table of instructions that take two arguments
     jtbl_2args:
@@ -92,8 +84,7 @@ section .rodata
 
 section .bss
 ; array of cpu states for each core. The current core's state is at `states[core]`
-    states: resb 8 * DCORES
-    spin_lock resd 1
+    states: resq 8 * CORES
 
 section .text
 ; gets a reference to a SO-register or SO-address based on r12, returns with rax
@@ -113,7 +104,7 @@ get_arg:
 .after_adding_D:
         sub     r12, 0x2                        ; correction for proper addressing to access X/Y
         movzx   rdx, BYTE[rdx+r12]              ; rdx = `so_cpu.<X|Y>
-        add     rax, rdx
+        add     al, dl
         add     rax, rsi                        ; rax += `data`
         ret
 
@@ -130,8 +121,8 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         lea     r13, [rel jtbl_2args]
         lea     r14, [rel jtbl_arg_imm8]
         lea     r15, [rel jtbl_jumps]
-
-        xor     r8, r8                          ; prepare loop index `size_t i = 0`
+        ; prepare loop index `size_t i = 0`
+        xor     r8, r8
         jmp      .loop_instructions_test
 .loop_instructions:
         movzx   rax, BYTE[SO_CPU+REG_PC]
@@ -140,9 +131,8 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         inc     r8                              ; `i++`
         cmp     rax, SO_BRK
         je      .after_loop_instructions        ; if opcode was BRK then stop execution
-
-; a switch statement that determines an instruction from the provided opcode
-        push    rdx                             ; save this reg in order not to lose `steps`
+.switch: ; a switch statement that determines an instruction from the provided opcode
+        push    rdx                             ; save this reg in order not to lose `steps`, will be used as a scratch reg
         ; load arg1 into r9b
         mov     r9, rax
         shr     r9, 8
@@ -154,7 +144,6 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         ; load imm8 into r11b
         mov     r11, rax
         and     r11, 0xFF
-
         shr     rax, 14                         ; the outer switch case needs the opcode's 2 leftmost bits
         mov     rdx, [JTBL_CAT+rax*8]           ; rdx = `jtbl_cat[rax]`
         add     rdx, JTBL_CAT                   ; rdx += `jtbl_cat`, now rdx holds the address of the appropriate label
@@ -172,41 +161,32 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         mov     r12, r10
         call    get_arg
         mov     r10, rax
-
         mov     al, [r10]                       ; rax - value of arg2
         mov     rdx, [JTBL_2ARGS+r11*8]         ; rdx = `jtbl_2args[r11]`
         add     rdx, JTBL_2ARGS                 ; rdx += `jtbl_2args`, now rdx holds the address of the appropriate label
         jmp     rdx                             ; jump to the appropriate instruction
 
 .SO_MOV:
-        mov     [r9], al
+        mov     BYTE[r9], al
         jmp     .after_switch
 .SO_OR:
-        or      [r9], al
+        or      BYTE[r9], al
         jmp     .set_ZF
 .SO_ADD:
-        add     [r9], al
+        add     BYTE[r9], al
         jmp     .set_ZF
 .SO_SUB:
-        sub     [r9], al
+        sub     BYTE[r9], al
         jmp     .set_ZF
 .SO_ADC:
-        mov     r11b, [SO_CPU+FLAG_C]
-        add     [r9], r11b
-        add     [r9], al
+        rcr     BYTE[SO_CPU+FLAG_C], 0x1        ; sets carry to `so_cpu.C`, overrides the ms-bit of FLAG_C but that will be corrected after the jump
+        adc     BYTE[r9], al
         jmp     .set_CF
 .SO_SBB:
-        mov     r11b, [SO_CPU+FLAG_C]
-        sub     [r9], r11b
-        sub     [r9], al
+        rcr     BYTE[SO_CPU+FLAG_C], 0x1        ; sets carry to `so_cpu.C`, overrides the ms-bit of FLAG_C but that will be corrected after the jump
+        sbb     BYTE[r9], al
         jmp     .set_CF
-.SO_XCHG: ;TODO: czemu to nie działa?
-;             lock\
-;             .spinlock_loop:
-;              mov     edx, 0x1
-;              xchg    DWORD[rel spin_lock], edx  ; if spin_lock was closed, this does nothing
-;              test    edx, edx                   ; otherwise, we've replaced 1 for 0, which enables us to enter critical section
-;              jnz     .spinlock_loop             
+.SO_XCHG:
         xchg    [r9], al                        ; this is already atomic, so no need to lock
         mov     [r10], al
         jmp     .after_switch
@@ -215,7 +195,6 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
 .set_ZF:
         setz    BYTE[SO_CPU+FLAG_Z]
         jmp     .after_switch
-
 
 .cat_arg_imm8:
         cmp     r10w, 0x6
@@ -254,10 +233,10 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         setc    BYTE[SO_CPU+FLAG_C]             ; set if rotation caused carry
         jmp     .after_switch
 
-.cat_fsets:
-        cmp     r11w, 0x1
+.cat_flagset:
+        cmp     r9b, 0x1
         ja      .after_switch                   ; opcode not recognized
-        mov     BYTE[SO_CPU+FLAG_C], r11b
+        mov     BYTE[SO_CPU+FLAG_C], r9b
 
 .cat_jumps:
         cmp     r9w, 0x5
@@ -266,20 +245,18 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         add     rdx, JTBL_JUMPS                 ; rdx += `jtbl_jumps`, now rdx holds the address of the appropriate label
         jmp     rdx                             ; jump to the appropriate instruction
 .SO_JNC:
-        cmp     BYTE[SO_CPU+FLAG_C], 0x0
-        jnz     .after_switch
-        jmp     .SO_JMP
+        cmp     BYTE[SO_CPU+FLAG_C], 0x1
+        jmp    .check_jump_condition
 .SO_JC:
         cmp     BYTE[SO_CPU+FLAG_C], 0x0
-        jz      .after_switch
-        jmp     .SO_JMP
+        jmp    .check_jump_condition
 .SO_JNZ:
-        cmp     BYTE[SO_CPU+FLAG_Z], 0x0
-        jnz      .after_switch
-        jmp     .SO_JMP
+        cmp     BYTE[SO_CPU+FLAG_Z], 0x1
+        jmp    .check_jump_condition
 .SO_JZ:
         cmp     BYTE[SO_CPU+FLAG_Z], 0x0
-        jz      .after_switch
+.check_jump_condition:
+        je      .after_switch
 .SO_JMP: ; each jump has to alter the instruction counter
         add     [SO_CPU+REG_PC], r11b
 
@@ -288,10 +265,10 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         pop     rdx                             ; restore value of `steps`
 .loop_instructions_test:
         cmp     r8, rdx
-        jl      .loop_instructions
+        jb      .loop_instructions
 .after_loop_instructions:
-        ; make rax hold this core's cpu_state  
-        mov     rax, QWORD[SO_CPU]  
+        ; make rax hold this core's cpu_state
+        mov     rax, QWORD[SO_CPU]
         ; restore non-scratch registers
         pop     r15
         pop     r14
@@ -299,5 +276,5 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         pop     r12
         pop     rbx
         ; restore the stack
-        add     rsp, 0x8              
+        add     rsp, 0x8
         ret
