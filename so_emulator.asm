@@ -9,7 +9,6 @@ global so_emul
 %define JTBL_CAT        r12
 %define JTBL_2ARGS      r13
 %define JTBL_ARG_IMM8   r14
-%define JTBL_JUMPS      r15
 
 ; so_cpu_t fields
 ;REG_A    equ 0x0
@@ -17,6 +16,7 @@ REG_D    equ 0x1
 ;REG_X    equ 0x2
 ;REG_Y    equ 0x3
 REG_PC   equ 0x4
+;UNUSED_BYTE equ 0x5
 FLAG_C   equ 0x6
 FLAG_Z   equ 0x7
 
@@ -36,15 +36,6 @@ SO_XORI  equ 0x4
 SO_ADDI  equ 0x5
 SO_CMPI  equ 0x6
 SO_RCR   equ 0x7
-
-SO_CLC   equ 0x0
-SO_STC   equ 0x1
-
-SO_JMP   equ 0x0
-SO_JNC   equ 0x2
-SO_JC    equ 0x3
-SO_JNZ   equ 0x4
-SO_JZ    equ 0x5
 
 section .rodata
 ; jump-table of instruction categories
@@ -73,14 +64,6 @@ section .rodata
         dq so_emul.SO_ADDI       - jtbl_arg_imm8
         dq so_emul.SO_CMPI       - jtbl_arg_imm8
         dq so_emul.SO_RCR        - jtbl_arg_imm8
-; jump-table of instructions that perform jumps
-    jtbl_jumps:
-        dq so_emul.SO_JMP       - jtbl_jumps
-        dq so_emul.after_switch - jtbl_jumps
-        dq so_emul.SO_JNC       - jtbl_jumps
-        dq so_emul.SO_JC        - jtbl_jumps
-        dq so_emul.SO_JNZ       - jtbl_jumps
-        dq so_emul.SO_JZ        - jtbl_jumps
 
 section .bss
 ; array of cpu states for each core. The current core's state is at `states[core]`
@@ -120,14 +103,13 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         lea     r12, [rel jtbl_cat]
         lea     r13, [rel jtbl_2args]
         lea     r14, [rel jtbl_arg_imm8]
-        lea     r15, [rel jtbl_jumps]
         ; prepare loop index `size_t i = 0`
         xor     r8, r8
         jmp      .loop_instructions_test
 .loop_instructions:
         movzx   rax, BYTE[SO_CPU+REG_PC]
         movzx   rax, WORD[rdi+rax*2]            ; rax = `code[i]`
-        inc     BYTE[SO_CPU+REG_PC]             ; `cpu_state.PC++`
+        inc     BYTE[SO_CPU+REG_PC]             ; `so_cpu.PC++`
         inc     r8                              ; `i++`
         cmp     rax, SO_BRK
         je      .after_loop_instructions        ; if opcode was BRK then stop execution
@@ -239,24 +221,18 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         mov     BYTE[SO_CPU+FLAG_C], r9b
 
 .cat_jumps:
-        cmp     r9w, 0x5
+        cmp     r9b, 0x5
         ja      .after_switch                   ; opcode not recognized
-        mov     rax, [JTBL_JUMPS+r9*8]          ; rax = `jtbl_jumps[r9]`
-        add     rax, JTBL_JUMPS                 ; rax += `jtbl_jumps`, now rax holds the address of the appropriate label
-        jmp     rax                             ; jump to the appropriate instruction
-.SO_JNC:
-        cmp     BYTE[SO_CPU+FLAG_C], 0x1
-        jmp    .check_jump_condition
-.SO_JC:
-        cmp     BYTE[SO_CPU+FLAG_C], 0x0
-        jmp    .check_jump_condition
-.SO_JNZ:
-        cmp     BYTE[SO_CPU+FLAG_Z], 0x1
-        jmp    .check_jump_condition
-.SO_JZ:
-        cmp     BYTE[SO_CPU+FLAG_Z], 0x0
-.check_jump_condition:
-        je      .after_switch
+        test    r9b, r9b
+        jz      .SO_JMP                         ; proceed directly to the jump if the instruction was SO_JMP
+        setp    al                              ; al  = (JNC || JNZ)? 0 : 1
+        shr     r9b, 0x2                        ; r9b = (JC || JNC)? 0 : 1
+        add     r9b, 0x6                        ; r9b = (r9b == 1)? REG_C : REG_Z
+        lea     r10, [SO_CPU]
+        add     r10, r9                         ; r10 = &so_cpu[r9b]
+        cmp     BYTE[r10], al                   ; check if the jump's condition is satisfied
+        jne     .after_switch
+        ;todo: chyba w ogóle zwolnił mi się jeden scratch (r15)
 .SO_JMP: ; each jump has to alter the instruction counter
         add     [SO_CPU+REG_PC], r11b
 
@@ -267,7 +243,7 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         cmp     r8, rdx
         jb      .loop_instructions
 .after_loop_instructions:
-        ; make rax hold this core's cpu_state
+        ; make rax hold this core's cpu state
         mov     rax, QWORD[SO_CPU]
         ; restore non-scratch registers
         pop     r15
