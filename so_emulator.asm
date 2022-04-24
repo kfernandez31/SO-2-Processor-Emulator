@@ -40,30 +40,30 @@ SO_RCR   equ 0x7
 section .rodata
 ; jump-table of instruction categories
     jtbl_cat:
-        dw so_emul.cat_2args    - jtbl_cat
-        dw so_emul.cat_arg_imm8 - jtbl_cat
-        dw so_emul.cat_flagset  - jtbl_cat
-        dw so_emul.cat_jumps    - jtbl_cat
+        dq so_emul.cat_2args    - jtbl_cat
+        dq so_emul.cat_arg_imm8 - jtbl_cat
+        dq so_emul.cat_flagset  - jtbl_cat
+        dq so_emul.cat_jumps    - jtbl_cat
 ; jump-table of instructions that take two arguments
     jtbl_2args:
-        dw so_emul.SO_MOV       - jtbl_2args
-        dw so_emul.after_switch - jtbl_2args
-        dw so_emul.SO_OR        - jtbl_2args
-        dw so_emul.after_switch - jtbl_2args
-        dw so_emul.SO_ADD       - jtbl_2args
-        dw so_emul.SO_SUB       - jtbl_2args
-        dw so_emul.SO_ADC       - jtbl_2args
-        dw so_emul.SO_SBB       - jtbl_2args
-        dw so_emul.SO_XCHG      - jtbl_2args
+        dq so_emul.SO_MOV       - jtbl_2args
+        dq so_emul.after_switch - jtbl_2args
+        dq so_emul.SO_OR        - jtbl_2args
+        dq so_emul.after_switch - jtbl_2args
+        dq so_emul.SO_ADD       - jtbl_2args
+        dq so_emul.SO_SUB       - jtbl_2args
+        dq so_emul.SO_ADC       - jtbl_2args
+        dq so_emul.SO_SBB       - jtbl_2args
+        dq so_emul.SO_XCHG      - jtbl_2args
 ; jump-table of instructions that take an argument and an immediate 8-bit value
     jtbl_arg_imm8:
-        dw so_emul.SO_MOVI       - jtbl_arg_imm8
-        dw so_emul.after_switch  - jtbl_arg_imm8
-        dw so_emul.after_switch  - jtbl_arg_imm8
-        dw so_emul.SO_XORI       - jtbl_arg_imm8
-        dw so_emul.SO_ADDI       - jtbl_arg_imm8
-        dw so_emul.SO_CMPI       - jtbl_arg_imm8
-        dw so_emul.SO_RCR        - jtbl_arg_imm8
+        dq so_emul.SO_MOVI       - jtbl_arg_imm8
+        dq so_emul.after_switch  - jtbl_arg_imm8
+        dq so_emul.after_switch  - jtbl_arg_imm8
+        dq so_emul.SO_XORI       - jtbl_arg_imm8
+        dq so_emul.SO_ADDI       - jtbl_arg_imm8
+        dq so_emul.SO_CMPI       - jtbl_arg_imm8
+        dq so_emul.SO_RCR        - jtbl_arg_imm8
 
 section .bss
 ; array of cpu states for each core. The current core's state is at `states[core]`
@@ -126,7 +126,7 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         and     r11, 0xFF
         shr     rax, 14                         ; the outer switch case needs the opcode's 2 leftmost bits
         ; prepare the address of the appropriate category of instructions to jump to
-        movsx   rax, WORD[JTBL_CAT+rax*2]       ; rax = `jtbl_cat[rax]`
+        mov     rax, [JTBL_CAT+rax*8]           ; rax = `jtbl_cat[rax]`
         add     rax, JTBL_CAT                   ; rax += `jtbl_cat`, now rax holds the address of the appropriate label
         push    r12                             ; need r12 as as a scratch register, save it
         jmp     rax
@@ -144,7 +144,7 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         mov     r10, rax
         ; prepare the address of the appropriate instruction to jump to
         mov     al, [r10]                       ; rax - value of arg2
-        movsx   r11, WORD[JTBL_2ARGS+r11*2]     ; r11 = `jtbl_2args[r11]`
+        mov   r11, [JTBL_2ARGS+r11*8]           ; r11 = `jtbl_2args[r11]`
         add     r11, JTBL_2ARGS                 ; r11 += `jtbl_2args`, now r11 holds the address of the appropriate label
         jmp     r11
 .SO_MOV:
@@ -184,7 +184,7 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         mov     r12, r9
         call    get_arg
          ; prepare the address of the appropriate instruction to jump to
-        movsx   r10, WORD[JTBL_ARG_IMM8+r10*2]  ; r10 = `jtbl_arg_imm8[r10]`
+        mov     r10, [JTBL_ARG_IMM8+r10*8]      ; r10 = `jtbl_arg_imm8[r10]`
         add     r10, JTBL_ARG_IMM8              ; r10 += `jtbl_arg_imm8`, now r10 holds the address of the appropriate label
         jmp     r10
 .SO_MOVI:
