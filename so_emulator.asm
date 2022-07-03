@@ -164,7 +164,7 @@ so_emul: ; (rdi,rsi,rdx,rcx) = (uint16_t const *code, uint8_t *data, size_t step
         adc     BYTE[r9], al
         jmp     .set_CF
 .SO_SBB:
-        rcr     BYTE[SO_CPU+FLAG_C], 0x1        ; sets carry to `so_cpu.C`, overrides the ms-bit of FLAG_C but that will be corrected after the jump
+        rcr     BYTE[SO_CPU+FLAG_C], 0x1        ; same reason as in SO_ADC
         sbb     BYTE[r9], al
         jmp     .set_CF
 .SO_XCHG:
