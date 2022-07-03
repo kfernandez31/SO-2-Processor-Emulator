@@ -1,6 +1,12 @@
-# Opis wyników i testów
+## Testy rocznikowe
+https://gitlab.com/mimuw-rocznik-2001/so-2022/testy-zad2
 
-## Jeden rdzeń
+## Testy oficjalne
+https://github.com/kfernandez31/SO-2-Processor-Emulator/blob/main/test.c
+
+## Opis wyników i testów
+
+### Jeden rdzeń
 
 Rozwiązanie jest kompilowane z parametrem `-DCORES=1`. Ocena jest z przedziału od `0 do 4. Jest 16 testów o numerach od 0 do 15. Za każdy test zakończony poprawnym wynikiem otrzymuje się 1/4 punktu. Od tego wyniku odejmowane są następujące kary:
   * (code_size > 768) * (code_size - 768) / 1024,
@@ -12,7 +18,7 @@ gdzie:
   * data_size to łączny rozmiar sekcji data i bss,
   * bss_size to rozmiar sekcji bss.
 
-## Wiele rdzeni
+### Wiele rdzeni
 
 Rozwiązanie jest kompilowane z parametrem `-DCORES=4`. Ocena jest z przedziału
 od 0 do 1. Są 3 testów o numerach od 40 do 42. Za każdy test zakończony
@@ -58,10 +64,3 @@ Następnie wypisany jest ułamek testów, które zakończyły się poprawnym wyn
 Wypisanie nazwy rejestru oznacza, że nie zachowano reguł użycia tego rejestru.
 Napis non-const oznacza, że zmodyfikowano kod programu.
 Na koniec wypisane są rozmiary poszczególnych sekcji.
-
-
-## Testy rocznikowe
-https://gitlab.com/mimuw-rocznik-2001/so-2022/testy-zad2
-
-## Testy oficjalne
-https://github.com/kfernandez31/SO-2-Processor-Emulator/blob/main/test.c
