@@ -2,7 +2,7 @@
 https://gitlab.com/mimuw-rocznik-2001/so-2022/testy-zad2
 
 ## Testy oficjalne
-https://github.com/kfernandez31/SO-2-Processor-Emulator/blob/main/test.c
+https://github.com/kfernandez31/SO-2-Processor-Emulator/tree/main/tests
 
 ## Opis wyników i testów
 
