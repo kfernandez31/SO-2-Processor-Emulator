@@ -32,11 +32,11 @@ typedef struct __attribute__((packed)) {
 
 ## Wersja wielordzeniowa
 
-Zaimplementuj w asemblerze x86-64 następującą funkcję wołaną z języka C, gdzie dodatkowy parametr core zawiera numer rdzenia. Rdzenie są numerowane do `0` do `CORES - 1`, gdzie `CORES` jest stałą kompilacji.
+Zaimplementuj w asemblerze x86-64 następującą funkcję wołaną z języka C, gdzie dodatkowy parametr `core` zawiera numer rdzenia. Rdzenie są numerowane do `0` do `CORES - 1`, gdzie `CORES` jest stałą kompilacji.
 ```c
 so_state_t so_emul(uint16_t const *code, uint8_t *data, size_t steps, size_t core);
 ```
-Wynikiem tej funkcji jest **instancja struktury reprezentującej aktualny stan rdzenia**. Każdy rdzeń ma własny zestaw rejestrów i znaczników. Dla każdego rdzenia funkcję so_emul uruchamia się w osobnym wątku.
+Wynikiem tej funkcji jest **instancja struktury reprezentującej aktualny stan rdzenia**. Każdy rdzeń ma własny zestaw rejestrów i znaczników. Dla każdego rdzenia funkcję `so_emul` uruchamia się w osobnym wątku.
 Instrukcje procesora jednordzeniowego
 
 ## Legenda do opisów instrukcji
