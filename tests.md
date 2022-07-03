@@ -64,3 +64,4 @@ Na koniec wypisane są rozmiary poszczególnych sekcji.
 https://gitlab.com/mimuw-rocznik-2001/so-2022/testy-zad2
 
 ## Testy oficjalne
+https://github.com/kfernandez31/SO-2-Processor-Emulator/blob/main/test.c
