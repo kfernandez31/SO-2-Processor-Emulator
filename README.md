@@ -4,7 +4,7 @@ What you see is a repository of my solution for task no. 2. of the [Operating Sy
 
 # Brief description
 
-The task was to TODO
+The task was to write a multi-core processor emulator that accepted machine codes and executed instructions represented by them on either registers or memory. The instructions formed a subset of the standard arithmetic, move and jump instructions found in NASM assembly.
 
 # Full description 
 
